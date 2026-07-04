@@ -1,0 +1,1 @@
+- Baixem o STM32CubeIDE pra rodar o projeto.

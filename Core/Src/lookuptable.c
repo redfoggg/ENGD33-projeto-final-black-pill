@@ -1,4 +1,4 @@
-float vetorCorrenteX [100] = {
+float currentVectorX [100] = {
 	2.2641896147007055,
 	3.2271941535307316,
 	3.8263240137988093,
@@ -101,7 +101,7 @@ float vetorCorrenteX [100] = {
 	1.3330794680700175
 };
 
-float vetorCorrenteY [100] = {
+float currentVectorY [100] = {
 	3.5215212878879125,
 	3.3176319541285118,
 	3.388454260817335,
@@ -204,7 +204,7 @@ float vetorCorrenteY [100] = {
 	3.1876445493351606
 };
 
-float vetorCorrenteZ [100] = {
+float currentVectorZ [100] = {
 	1.5948293034123449,
 	0.6466110130849541,
 	1.3807895143371023,
@@ -307,7 +307,7 @@ float vetorCorrenteZ [100] = {
 	1.9037580920743054
 };
 
-float vetorVelAngX [100] = {
+float angularVelVectorX [100] = {
 	21.436845528320937,
 	15.65965531658526,
 	16.19120339983196,
@@ -410,7 +410,7 @@ float vetorVelAngX [100] = {
 	18.73246572521159
 };
 
-float vetorVelAngY [100] = {
+float angularVelVectorY [100] = {
 	0.28438394742789236,
 	0.8888348578380809,
 	9.155063591677148,
@@ -513,7 +513,7 @@ float vetorVelAngY [100] = {
 	20.63179360995021
 };
 
-float vetorVelAngZ [100] = {
+float angularVelVectorZ [100] = {
 	30.9463647806616,
 	30.537758673605044,
 	30.943006377340485,
@@ -616,7 +616,7 @@ float vetorVelAngZ [100] = {
 	24.6128678712199
 };
 
-float vetorPosicaoX [100] = {
+float positionVectorX [100] = {
 	365.22471456570224,
 	432.6404926899029,
 	518.0437903865662,
@@ -719,7 +719,7 @@ float vetorPosicaoX [100] = {
 	194.05907504408904
 };
 
-float vetorPosicaoY [100] = {
+float positionVectorY [100] = {
 	8.883995032054838,
 	350.69304426280166,
 	180.51497899409918,
@@ -822,7 +822,7 @@ float vetorPosicaoY [100] = {
 	521.0861391467774
 };
 
-float vetorPosicaoZ [100] = {
+float positionVectorZ [100] = {
 	440.85807046739257,
 	396.271297242454,
 	655.03116649241,

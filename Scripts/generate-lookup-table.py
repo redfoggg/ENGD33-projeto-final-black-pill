@@ -1,15 +1,15 @@
 from random import random
 from math import pi
 
-tamanho = 100
+size = 100
 
 
-def generate_random_array(titulo, max):
-    txt = f"float {titulo} [{tamanho}] = " + "{\n"
-    for _ in range(tamanho):
+def generate_random_array(title, max):
+    txt = f"float {title} [{size}] = " + "{\n"
+    for _ in range(size):
         value = random()*max
         txt += f"\t{value}"
-        if (_ < tamanho-1):
+        if (_ < size-1):
             txt += ",\n"
     txt += "\n};\n\n"
     return txt
@@ -17,39 +17,39 @@ def generate_random_array(titulo, max):
 
 arrays = [
     {
-        "title": "vetorCorrenteX",
+        "title": "currentVectorX",
         "max": 4
     },
     {
-        "title": "vetorCorrenteY",
+        "title": "currentVectorY",
         "max": 4
     },
     {
-        "title": "vetorCorrenteZ",
+        "title": "currentVectorZ",
         "max": 4
     },
     {
-        "title": "vetorVelAngX",
+        "title": "angularVelVectorX",
         "max": 10*pi
     },
     {
-        "title": "vetorVelAngY",
+        "title": "angularVelVectorY",
         "max": 10*pi
     },
     {
-        "title": "vetorVelAngZ",
+        "title": "angularVelVectorZ",
         "max": 10*pi
     },
     {
-        "title": "vetorPosicaoX",
+        "title": "positionVectorX",
         "max": 1000
     },
     {
-        "title": "vetorPosicaoY",
+        "title": "positionVectorY",
         "max": 1000
     },
     {
-        "title": "vetorPosicaoZ",
+        "title": "positionVectorZ",
         "max": 1000
     },
 ]

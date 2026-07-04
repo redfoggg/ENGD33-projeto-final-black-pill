@@ -14,54 +14,54 @@
 #include "usertypedefs.h"
 #include "lookuptable.h"
 
-/* ================DEFINES E VARIÁVEIS DE CONTROLE================ */
+/* ================DEFINES AND CONTROL VARIABLES================ */
 
-#define TELA1 1
-#define TELA2 2
-#define TELA3 3
+#define SCREEN1 1
+#define SCREEN2 2
+#define SCREEN3 3
 
-#define REFRESH_TELA 699
+#define REFRESH_SCREEN 699
 
-extern uint16_t sTelaAtual;
+extern uint16_t sCurrentScreen;
 
-/* =============ESTRUTURAS DE ARMAZENAMENTO DE DADOS============== */
+/* =============DATA STORAGE STRUCTURES============== */
 
-extern dataset xVelLinearAtual;
-extern dataset xPosicaoAtual;
-extern dataset xVelAngularAtual;
-extern dataset xCorrenteAtual;
+extern dataset xCurrentLinearVel;
+extern dataset xCurrentPosition;
+extern dataset xCurrentAngularVel;
+extern dataset xCurrentCurrent;
 
 /* ===========================HANDLERS============================ */
 
 extern TaskHandle_t xHandlerDisplayManager;
 
-extern QueueHandle_t xQueueCorrente;
-extern QueueHandle_t xQueueVelAngular;
-extern QueueHandle_t xQueuePosicao;
+extern QueueHandle_t xQueueCurrent;
+extern QueueHandle_t xQueueAngularVel;
+extern QueueHandle_t xQueuePosition;
 
-extern SemaphoreHandle_t xMutexCorrenteAtual;
-extern SemaphoreHandle_t xMutexVelLinearAtual;
-extern SemaphoreHandle_t xMutexVelAngularAtual;
-extern SemaphoreHandle_t xMutexPosicaoAtual;
+extern SemaphoreHandle_t xMutexCurrentCurrent;
+extern SemaphoreHandle_t xMutexCurrentLinearVel;
+extern SemaphoreHandle_t xMutexCurrentAngularVel;
+extern SemaphoreHandle_t xMutexCurrentPosition;
 
-/* ==========================PROTÓTIPOS========================== */
+/* ==========================PROTOTYPES========================== */
 
 void userRTOS(void);
 void vDisplayManager(void*);
-void vTaskGerarQueueCorrente(void*);
-void vTaskGerarQueueVelAngular(void*);
-void vTaskGerarQueuePosicao(void*);
-void vTaskQueueCorrenteReader(void*);
-void vTaskQueueVelAngularReader(void*);
-void vTaskQueuePosicaoReader(void*);
-void inicializar(void);
-void funcBaseTela1(void);
-void funcBaseTela2(void);
-void funcBaseTela3(void);
-void baseTela(uint16_t);
-void funcDadosTela1(void);
-void funcDadosTela2(void);
-void funcDadosTela3(void);
-void dadosTela(uint16_t);
+void vTaskGenerateCurrentQueue(void*);
+void vTaskGenerateAngularVelQueue(void*);
+void vTaskGeneratePositionQueue(void*);
+void vTaskQueueCurrentReader(void*);
+void vTaskQueueAngularVelReader(void*);
+void vTaskQueuePositionReader(void*);
+void initialize(void);
+void funcBaseScreen1(void);
+void funcBaseScreen2(void);
+void funcBaseScreen3(void);
+void baseScreen(uint16_t);
+void funcDataScreen1(void);
+void funcDataScreen2(void);
+void funcDataScreen3(void);
+void dataScreen(uint16_t);
 
 #endif /* MAINCODE_H */

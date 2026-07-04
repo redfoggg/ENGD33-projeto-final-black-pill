@@ -2,46 +2,46 @@
 
 /* ================DEFINES E VARIÁVEIS DE CONTROLE================ */
 
-uint16_t sTelaAtual = TELA1;
+uint16_t sCurrentScreen = SCREEN1;
 
 /* =============ESTRUTURAS DE ARMAZENAMENTO DE DADOS============== */
 
-dataset xVelLinearAtual;
-dataset xPosicaoAtual;
-dataset xVelAngularAtual;
-dataset xCorrenteAtual;
+dataset xCurrentLinearVel;
+dataset xCurrentPosition;
+dataset xCurrentAngularVel;
+dataset xCurrentCurrent;
 
 /* ===========================HANDLERS============================ */
 
 TaskHandle_t xHandlerDisplayManager = NULL;
 
-QueueHandle_t xQueueCorrente = NULL;
-QueueHandle_t xQueueVelAngular = NULL;
-QueueHandle_t xQueuePosicao = NULL;
+QueueHandle_t xQueueCurrent = NULL;
+QueueHandle_t xQueueAngularVel = NULL;
+QueueHandle_t xQueuePosition = NULL;
 
-SemaphoreHandle_t xMutexCorrenteAtual = NULL;
-SemaphoreHandle_t xMutexVelLinearAtual = NULL;
-SemaphoreHandle_t xMutexVelAngularAtual = NULL;
-SemaphoreHandle_t xMutexPosicaoAtual = NULL;
+SemaphoreHandle_t xMutexCurrentCurrent = NULL;
+SemaphoreHandle_t xMutexCurrentLinearVel = NULL;
+SemaphoreHandle_t xMutexCurrentAngularVel = NULL;
+SemaphoreHandle_t xMutexCurrentPosition = NULL;
 
 /* =====================INICIALIZAÇÃO DO RTOS===================== */
 
 void userRTOS(void) {
-    xMutexVelLinearAtual = xSemaphoreCreateMutex();
-    xMutexVelAngularAtual = xSemaphoreCreateMutex();
-    xMutexPosicaoAtual = xSemaphoreCreateMutex();
+    xMutexCurrentLinearVel = xSemaphoreCreateMutex();
+    xMutexCurrentAngularVel = xSemaphoreCreateMutex();
+    xMutexCurrentPosition = xSemaphoreCreateMutex();
 
-    xQueueCorrente = xQueueCreate(50, sizeof(dataset));
-    xQueueVelAngular = xQueueCreate(30, sizeof(dataset));
-    xQueuePosicao = xQueueCreate(5, sizeof(dataset));
+    xQueueCurrent = xQueueCreate(50, sizeof(dataset));
+    xQueueAngularVel = xQueueCreate(30, sizeof(dataset));
+    xQueuePosition = xQueueCreate(5, sizeof(dataset));
 
     xTaskCreate(vDisplayManager, "displayManager", 2048, (void*) 0, 1, &xHandlerDisplayManager);
-    xTaskCreate(vTaskGerarQueueCorrente, "gerarQueueCorrente", 128, (void*) 0, 5, NULL);
-    xTaskCreate(vTaskGerarQueueVelAngular, "gerarQueueVelAngular", 128, (void*) 0, 4, NULL);
-    xTaskCreate(vTaskGerarQueuePosicao, "gerarQueuePosicao", 128, (void*) 0, 3, NULL);
-    xTaskCreate(vTaskQueueCorrenteReader, "queueCorrenteReader", 256, (void*) 0, 2, NULL);
-    xTaskCreate(vTaskQueueVelAngularReader, "queueVelAngularReader", 256, (void*) 0, 2, NULL);
-    xTaskCreate(vTaskQueuePosicaoReader, "queuePosicaoReader", 256, (void*) 0, 2, NULL);
+    xTaskCreate(vTaskGenerateCurrentQueue, "gerarQueueCorrente", 128, (void*) 0, 5, NULL);
+    xTaskCreate(vTaskGenerateAngularVelQueue, "gerarQueueVelAngular", 128, (void*) 0, 4, NULL);
+    xTaskCreate(vTaskGeneratePositionQueue, "gerarQueuePosicao", 128, (void*) 0, 3, NULL);
+    xTaskCreate(vTaskQueueCurrentReader, "queueCorrenteReader", 256, (void*) 0, 2, NULL);
+    xTaskCreate(vTaskQueueAngularVelReader, "queueVelAngularReader", 256, (void*) 0, 2, NULL);
+    xTaskCreate(vTaskQueuePositionReader, "queuePosicaoReader", 256, (void*) 0, 2, NULL);
 
     vTaskStartScheduler();
 
@@ -53,50 +53,50 @@ void userRTOS(void) {
 // Gerenciamento da tela
 void vDisplayManager(void *p){
 	TickType_t xLastWakeTime;;
-	uint16_t sIndice = 0;
+	uint16_t sIndex = 0;
 	while(1){
 		xLastWakeTime = xTaskGetTickCount();
-		if(sIndice >= 9){
-			switch(sTelaAtual) {
-    		    case TELA1:
-    		        sTelaAtual = TELA2;
+		if(sIndex >= 9){
+			switch(sCurrentScreen) {
+    		    case SCREEN1:
+    		        sCurrentScreen = SCREEN2;
     		        break;
-    		    case TELA2:
-    		        sTelaAtual = TELA3;
+    		    case SCREEN2:
+    		        sCurrentScreen = SCREEN3;
     		        break;
-    		    case TELA3:
-    		       	sTelaAtual = TELA1;
+    		    case SCREEN3:
+    		       	sCurrentScreen = SCREEN1;
     		        break;
     		    default:
     		        break;
     		}
-			baseTela(sTelaAtual);
-			sIndice = 0;
+			baseScreen(sCurrentScreen);
+			sIndex = 0;
 		}else{
-			sIndice++;
+			sIndex++;
 		}
-		dadosTela(sTelaAtual);
-		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(REFRESH_TELA));
+		dataScreen(sCurrentScreen);
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(REFRESH_SCREEN));
 	}
 }
 
-// Geração de dados de corrente e envio para queue
-void vTaskGerarQueueCorrente(void *p) {
+// Geração de dados de current e envio para queue
+void vTaskGenerateCurrentQueue(void *p) {
 	TickType_t xLastWakeTime;
-	dataset correntes;
-	uint16_t sIndice = 0;
+	dataset currents;
+	uint16_t sIndex = 0;
 	while(1) {
 		xLastWakeTime = xTaskGetTickCount();
-		correntes.x = vetorCorrenteX[sIndice];
-		correntes.y = vetorCorrenteY[sIndice];
-		correntes.z = vetorCorrenteZ[sIndice];
-		correntes.timestamp = xLastWakeTime;
-		if(sIndice >= LENGTH_LUT - 1){
-			sIndice = 0;
+		currents.x = currentVectorX[sIndex];
+		currents.y = currentVectorY[sIndex];
+		currents.z = currentVectorZ[sIndex];
+		currents.timestamp = xLastWakeTime;
+		if(sIndex >= LENGTH_LUT - 1){
+			sIndex = 0;
 		}else{
-			sIndice++;
+			sIndex++;
 		}
-		if(xQueueSendToBack(xQueueCorrente, &correntes, 0) == errQUEUE_FULL){
+		if(xQueueSendToBack(xQueueCurrent, &currents, 0) == errQUEUE_FULL){
 			HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
 		}
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1));
@@ -104,22 +104,22 @@ void vTaskGerarQueueCorrente(void *p) {
 }
 
 // Geração de dados de velocidade angular e envio para queue
-void vTaskGerarQueueVelAngular(void *p) {
+void vTaskGenerateAngularVelQueue(void *p) {
 	TickType_t xLastWakeTime;
-	dataset velAngular;
-	uint16_t sIndice = 0;
+	dataset angularVel;
+	uint16_t sIndex = 0;
 	while(1) {
 		xLastWakeTime = xTaskGetTickCount();
-		velAngular.x = vetorVelAngX[sIndice];
-		velAngular.y = vetorVelAngY[sIndice];
-		velAngular.z = vetorVelAngZ[sIndice];
-		velAngular.timestamp = xLastWakeTime;
-		if(sIndice >= LENGTH_LUT - 1){
-			sIndice = 0;
+		angularVel.x = angularVelVectorX[sIndex];
+		angularVel.y = angularVelVectorY[sIndex];
+		angularVel.z = angularVelVectorZ[sIndex];
+		angularVel.timestamp = xLastWakeTime;
+		if(sIndex >= LENGTH_LUT - 1){
+			sIndex = 0;
 		}else{
-			sIndice++;
+			sIndex++;
 		}
-		if(xQueueSendToBack(xQueueVelAngular, &velAngular, 0) == errQUEUE_FULL){
+		if(xQueueSendToBack(xQueueAngularVel, &angularVel, 0) == errQUEUE_FULL){
 			HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
 		}
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
@@ -127,39 +127,39 @@ void vTaskGerarQueueVelAngular(void *p) {
 }
 
 // Geração de dados de GPS e envio para queue
-void vTaskGerarQueuePosicao(void *p) {
+void vTaskGeneratePositionQueue(void *p) {
 	TickType_t xLastWakeTime;
-	dataset posicao;
-	uint16_t sIndice = 0;
+	dataset position;
+	uint16_t sIndex = 0;
 	while(1) {
 		xLastWakeTime = xTaskGetTickCount();
-		posicao.x = vetorPosicaoX[sIndice];
-		posicao.y = vetorPosicaoY[sIndice];
-		posicao.z = vetorPosicaoZ[sIndice];
-		posicao.timestamp = xLastWakeTime;
-		if(sIndice >= LENGTH_LUT - 1){
-			sIndice = 0;
+		position.x = positionVectorX[sIndex];
+		position.y = positionVectorY[sIndex];
+		position.z = positionVectorZ[sIndex];
+		position.timestamp = xLastWakeTime;
+		if(sIndex >= LENGTH_LUT - 1){
+			sIndex = 0;
 		}else{
-			sIndice++;
+			sIndex++;
 		}
-		if(xQueueSendToBack(xQueuePosicao, &posicao, 0) == errQUEUE_FULL){
+		if(xQueueSendToBack(xQueuePosition, &position, 0) == errQUEUE_FULL){
 			HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
 		}
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));
 	}
 }
 
-// Leitura de dados de corrente da queue
-void vTaskQueueCorrenteReader(void *p) {
+// Leitura de dados de current da queue
+void vTaskQueueCurrentReader(void *p) {
 	const TickType_t xMaxMutexDelay = pdMS_TO_TICKS(1);
 	TickType_t xLastWakeTime;
-	dataset corrente;
+	dataset current;
 	while (1) {
 		xLastWakeTime = xTaskGetTickCount();
-		while(xQueueReceive(xQueueCorrente, &corrente, 0) != errQUEUE_EMPTY){
-			if(xSemaphoreTake(xMutexCorrenteAtual, xMaxMutexDelay) == pdPASS){
-				xCorrenteAtual = corrente;
-				xSemaphoreGive(xMutexCorrenteAtual);
+		while(xQueueReceive(xQueueCurrent, &current, 0) != errQUEUE_EMPTY){
+			if(xSemaphoreTake(xMutexCurrentCurrent, xMaxMutexDelay) == pdPASS){
+				xCurrentCurrent = current;
+				xSemaphoreGive(xMutexCurrentCurrent);
 			}
 		}
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(125));
@@ -167,7 +167,7 @@ void vTaskQueueCorrenteReader(void *p) {
 }
 
 // Leitura de dados de velocidade angular da queue
-void vTaskQueueVelAngularReader(void *p) {
+void vTaskQueueAngularVelReader(void *p) {
 	const TickType_t xMaxMutexDelay = pdMS_TO_TICKS(1);
 	const uint16_t L_cm = 20;
 	const uint16_t r_cm = 15;
@@ -182,26 +182,26 @@ void vTaskQueueVelAngularReader(void *p) {
 	const float cos_alpha3 = cos(alpha3);
 	TickType_t xLastWakeTime;
 	float linearVX, linearVY, linearW;
-	dataset velAngular, velLinear;
+	dataset angularVel, linearVel;
 	while (1) {
 		xLastWakeTime = xTaskGetTickCount();
 
-		while(xQueueReceive(xQueueVelAngular, &velAngular, 0) != errQUEUE_EMPTY) {
-			linearVX = r_cm*(2.0/3.0)*(-(sin_alpha1*velAngular.x)-(sin_alpha2*velAngular.y)-(sin_alpha3*velAngular.z));
-			linearVY = r_cm*(2.0/3.0)*((cos_alpha1*velAngular.x)+(cos_alpha2*velAngular.y)+(cos_alpha3*velAngular.z));
-			linearW = (r_cm*(velAngular.x+velAngular.y+velAngular.z))/(3*L_cm);
-			velLinear.x = linearVX;
-			velLinear.y = linearVY;
-			velLinear.z = linearW;
+		while(xQueueReceive(xQueueAngularVel, &angularVel, 0) != errQUEUE_EMPTY) {
+			linearVX = r_cm*(2.0/3.0)*(-(sin_alpha1*angularVel.x)-(sin_alpha2*angularVel.y)-(sin_alpha3*angularVel.z));
+			linearVY = r_cm*(2.0/3.0)*((cos_alpha1*angularVel.x)+(cos_alpha2*angularVel.y)+(cos_alpha3*angularVel.z));
+			linearW = (r_cm*(angularVel.x+angularVel.y+angularVel.z))/(3*L_cm);
+			linearVel.x = linearVX;
+			linearVel.y = linearVY;
+			linearVel.z = linearW;
 
-			if(xSemaphoreTake(xMutexVelLinearAtual, xMaxMutexDelay) == pdPASS){
-				xVelLinearAtual = velLinear;
-				xSemaphoreGive(xMutexVelLinearAtual);
+			if(xSemaphoreTake(xMutexCurrentLinearVel, xMaxMutexDelay) == pdPASS){
+				xCurrentLinearVel = linearVel;
+				xSemaphoreGive(xMutexCurrentLinearVel);
 			}
 
-			if(xSemaphoreTake(xMutexVelAngularAtual, xMaxMutexDelay) == pdPASS){
-				xVelAngularAtual = velAngular;
-				xSemaphoreGive(xMutexVelAngularAtual);
+			if(xSemaphoreTake(xMutexCurrentAngularVel, xMaxMutexDelay) == pdPASS){
+				xCurrentAngularVel = angularVel;
+				xSemaphoreGive(xMutexCurrentAngularVel);
 			}
 		}
 
@@ -210,16 +210,16 @@ void vTaskQueueVelAngularReader(void *p) {
 }
 
 // Leitura de dados de GPS da queue
-void vTaskQueuePosicaoReader(void *p) {
+void vTaskQueuePositionReader(void *p) {
 	const TickType_t xMaxMutexDelay = pdMS_TO_TICKS(1);
 	TickType_t xLastWakeTime;
-	dataset posicao;
+	dataset position;
 	while (1) {
 		xLastWakeTime = xTaskGetTickCount();
-		while(xQueueReceive(xQueuePosicao, &posicao, 0) != errQUEUE_EMPTY){
-			if(xSemaphoreTake(xMutexPosicaoAtual, xMaxMutexDelay) == pdPASS){
-				xPosicaoAtual = posicao;
-				xSemaphoreGive(xMutexPosicaoAtual);
+		while(xQueueReceive(xQueuePosition, &position, 0) != errQUEUE_EMPTY){
+			if(xSemaphoreTake(xMutexCurrentPosition, xMaxMutexDelay) == pdPASS){
+				xCurrentPosition = position;
+				xSemaphoreGive(xMutexCurrentPosition);
 			}
 		}
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(125));
@@ -230,45 +230,45 @@ void vTaskQueuePosicaoReader(void *p) {
 
 /* Layout para o OLED SSD1306 (128x64, monocromatico).
  * Titulo na linha y=0; valores nas linhas y=14/26/38/50 usando FONT1 (8x12). */
-#define TITULO_Y	0
-#define LINHA1_Y	14
-#define LINHA2_Y	26
-#define LINHA3_Y	38
-#define LINHA4_Y	50
+#define TITLE_Y	0
+#define LINE1_Y	14
+#define LINE2_Y	26
+#define LINE3_Y	38
+#define LINE4_Y	50
 
 // Inicialização da tela executada antes da inicialização do RTOS
-void inicializar(void){
+void initialize(void){
 	SSD1306_Init();
-	baseTela(sTelaAtual);
+	baseScreen(sCurrentScreen);
 }
 
 // Base da Tela 1
-void funcBaseTela1(void){
-	SSD1306_DrawText("Vel Lin / Pos", FONT1, 0, TITULO_Y, SSD1306_WHITE, SSD1306_BLACK);
+void funcBaseScreen1(void){
+	SSD1306_DrawText("Vel Lin / Pos", FONT1, 0, TITLE_Y, SSD1306_WHITE, SSD1306_BLACK);
 }
 
 // Base da Tela 2
-void funcBaseTela2(void){
-	SSD1306_DrawText("Vel Angular", FONT1, 0, TITULO_Y, SSD1306_WHITE, SSD1306_BLACK);
+void funcBaseScreen2(void){
+	SSD1306_DrawText("Vel Angular", FONT1, 0, TITLE_Y, SSD1306_WHITE, SSD1306_BLACK);
 }
 
 // Base da Tela 3
-void funcBaseTela3(void){
-	SSD1306_DrawText("Corrente", FONT1, 0, TITULO_Y, SSD1306_WHITE, SSD1306_BLACK);
+void funcBaseScreen3(void){
+	SSD1306_DrawText("Corrente", FONT1, 0, TITLE_Y, SSD1306_WHITE, SSD1306_BLACK);
 }
 
 // Seleção de base de tela
-void baseTela(uint16_t sNumTela){
+void baseScreen(uint16_t sScreenNum){
 	SSD1306_Fill(SSD1306_BLACK);
-	switch(sNumTela){
-		case TELA1:
-			funcBaseTela1();
+	switch(sScreenNum){
+		case SCREEN1:
+			funcBaseScreen1();
 			break;
-		case TELA2:
-			funcBaseTela2();
+		case SCREEN2:
+			funcBaseScreen2();
 			break;
-		case TELA3:
-			funcBaseTela3();
+		case SCREEN3:
+			funcBaseScreen3();
 			break;
 		default:
 			break;
@@ -277,87 +277,87 @@ void baseTela(uint16_t sNumTela){
 }
 
 // Exibição de valores da tela 1
-void funcDadosTela1(void){
+void funcDataScreen1(void){
 	const TickType_t xMaxMutexDelay = pdMS_TO_TICKS(1);
-	dataset velLinear;
-	dataset posicao;
+	dataset linearVel;
+	dataset position;
 	char textBuffer[20];
 
-	if(xSemaphoreTake(xMutexVelLinearAtual, xMaxMutexDelay) == pdPASS){
-		velLinear = xVelLinearAtual;
-		xSemaphoreGive(xMutexVelLinearAtual);
+	if(xSemaphoreTake(xMutexCurrentLinearVel, xMaxMutexDelay) == pdPASS){
+		linearVel = xCurrentLinearVel;
+		xSemaphoreGive(xMutexCurrentLinearVel);
 	}
-	if(xSemaphoreTake(xMutexPosicaoAtual, xMaxMutexDelay) == pdPASS){
-		posicao = xPosicaoAtual;
-		xSemaphoreGive(xMutexPosicaoAtual);
+	if(xSemaphoreTake(xMutexCurrentPosition, xMaxMutexDelay) == pdPASS){
+		position = xCurrentPosition;
+		xSemaphoreGive(xMutexCurrentPosition);
 	}
 
-	sprintf(textBuffer, "Vx:%.1f   ", velLinear.x);
-	SSD1306_DrawText(textBuffer, FONT1, 0, LINHA1_Y, SSD1306_WHITE, SSD1306_BLACK);
-	sprintf(textBuffer, "Vy:%.1f   ", velLinear.y);
-	SSD1306_DrawText(textBuffer, FONT1, 0, LINHA2_Y, SSD1306_WHITE, SSD1306_BLACK);
-	sprintf(textBuffer, "Px:%.2f  ", posicao.x);
-	SSD1306_DrawText(textBuffer, FONT1, 0, LINHA3_Y, SSD1306_WHITE, SSD1306_BLACK);
-	sprintf(textBuffer, "Py:%.2f  ", posicao.y);
-	SSD1306_DrawText(textBuffer, FONT1, 0, LINHA4_Y, SSD1306_WHITE, SSD1306_BLACK);
+	sprintf(textBuffer, "Vx:%.1f   ", linearVel.x);
+	SSD1306_DrawText(textBuffer, FONT1, 0, LINE1_Y, SSD1306_WHITE, SSD1306_BLACK);
+	sprintf(textBuffer, "Vy:%.1f   ", linearVel.y);
+	SSD1306_DrawText(textBuffer, FONT1, 0, LINE2_Y, SSD1306_WHITE, SSD1306_BLACK);
+	sprintf(textBuffer, "Px:%.2f  ", position.x);
+	SSD1306_DrawText(textBuffer, FONT1, 0, LINE3_Y, SSD1306_WHITE, SSD1306_BLACK);
+	sprintf(textBuffer, "Py:%.2f  ", position.y);
+	SSD1306_DrawText(textBuffer, FONT1, 0, LINE4_Y, SSD1306_WHITE, SSD1306_BLACK);
 }
 
 // Exibição dos valores da tela 2
-void funcDadosTela2(void){
+void funcDataScreen2(void){
 	const TickType_t xMaxMutexDelay = pdMS_TO_TICKS(1);
-	dataset velAngular;
-	dataset velLinear;
+	dataset angularVel;
+	dataset linearVel;
 	char textBuffer[20];
 
-	if(xSemaphoreTake(xMutexVelLinearAtual, xMaxMutexDelay) == pdPASS){
-		velLinear = xVelLinearAtual;
-		xSemaphoreGive(xMutexVelLinearAtual);
+	if(xSemaphoreTake(xMutexCurrentLinearVel, xMaxMutexDelay) == pdPASS){
+		linearVel = xCurrentLinearVel;
+		xSemaphoreGive(xMutexCurrentLinearVel);
 	}
-	if(xSemaphoreTake(xMutexVelAngularAtual, xMaxMutexDelay) == pdPASS){
-		velAngular = xVelAngularAtual;
-		xSemaphoreGive(xMutexVelAngularAtual);
+	if(xSemaphoreTake(xMutexCurrentAngularVel, xMaxMutexDelay) == pdPASS){
+		angularVel = xCurrentAngularVel;
+		xSemaphoreGive(xMutexCurrentAngularVel);
 	}
 
-	sprintf(textBuffer, "M1:%.1f   ", velAngular.x);
-	SSD1306_DrawText(textBuffer, FONT1, 0, LINHA1_Y, SSD1306_WHITE, SSD1306_BLACK);
-	sprintf(textBuffer, "M2:%.1f   ", velAngular.y);
-	SSD1306_DrawText(textBuffer, FONT1, 0, LINHA2_Y, SSD1306_WHITE, SSD1306_BLACK);
-	sprintf(textBuffer, "M3:%.1f   ", velAngular.z);
-	SSD1306_DrawText(textBuffer, FONT1, 0, LINHA3_Y, SSD1306_WHITE, SSD1306_BLACK);
-	sprintf(textBuffer, "W :%.2f  ", velLinear.z);
-	SSD1306_DrawText(textBuffer, FONT1, 0, LINHA4_Y, SSD1306_WHITE, SSD1306_BLACK);
+	sprintf(textBuffer, "M1:%.1f   ", angularVel.x);
+	SSD1306_DrawText(textBuffer, FONT1, 0, LINE1_Y, SSD1306_WHITE, SSD1306_BLACK);
+	sprintf(textBuffer, "M2:%.1f   ", angularVel.y);
+	SSD1306_DrawText(textBuffer, FONT1, 0, LINE2_Y, SSD1306_WHITE, SSD1306_BLACK);
+	sprintf(textBuffer, "M3:%.1f   ", angularVel.z);
+	SSD1306_DrawText(textBuffer, FONT1, 0, LINE3_Y, SSD1306_WHITE, SSD1306_BLACK);
+	sprintf(textBuffer, "W :%.2f  ", linearVel.z);
+	SSD1306_DrawText(textBuffer, FONT1, 0, LINE4_Y, SSD1306_WHITE, SSD1306_BLACK);
 }
 
 // Exibição dos valores da tela 3
-void funcDadosTela3(void){
+void funcDataScreen3(void){
 	const TickType_t xMaxMutexDelay = pdMS_TO_TICKS(1);
-	dataset corrente;
+	dataset current;
 	char textBuffer[20];
 
-	if(xSemaphoreTake(xMutexCorrenteAtual, xMaxMutexDelay) == pdPASS){
-		corrente = xCorrenteAtual;
-		xSemaphoreGive(xMutexCorrenteAtual);
+	if(xSemaphoreTake(xMutexCurrentCurrent, xMaxMutexDelay) == pdPASS){
+		current = xCurrentCurrent;
+		xSemaphoreGive(xMutexCurrentCurrent);
 	}
 
-	sprintf(textBuffer, "Ix:%.1f   ", corrente.x);
-	SSD1306_DrawText(textBuffer, FONT1, 0, LINHA1_Y, SSD1306_WHITE, SSD1306_BLACK);
-	sprintf(textBuffer, "Iy:%.1f   ", corrente.y);
-	SSD1306_DrawText(textBuffer, FONT1, 0, LINHA2_Y, SSD1306_WHITE, SSD1306_BLACK);
-	sprintf(textBuffer, "Iz:%.1f   ", corrente.z);
-	SSD1306_DrawText(textBuffer, FONT1, 0, LINHA3_Y, SSD1306_WHITE, SSD1306_BLACK);
+	sprintf(textBuffer, "Ix:%.1f   ", current.x);
+	SSD1306_DrawText(textBuffer, FONT1, 0, LINE1_Y, SSD1306_WHITE, SSD1306_BLACK);
+	sprintf(textBuffer, "Iy:%.1f   ", current.y);
+	SSD1306_DrawText(textBuffer, FONT1, 0, LINE2_Y, SSD1306_WHITE, SSD1306_BLACK);
+	sprintf(textBuffer, "Iz:%.1f   ", current.z);
+	SSD1306_DrawText(textBuffer, FONT1, 0, LINE3_Y, SSD1306_WHITE, SSD1306_BLACK);
 }
 
 // Exibição de dados na tela
-void dadosTela(uint16_t sNumTela){
-	switch(sNumTela){
-		case TELA1:
-			funcDadosTela1();
+void dataScreen(uint16_t sScreenNum){
+	switch(sScreenNum){
+		case SCREEN1:
+			funcDataScreen1();
 			break;
-		case TELA2:
-			funcDadosTela2();
+		case SCREEN2:
+			funcDataScreen2();
 			break;
-		case TELA3:
-			funcDadosTela3();
+		case SCREEN3:
+			funcDataScreen3();
 			break;
 		default:
 			break;

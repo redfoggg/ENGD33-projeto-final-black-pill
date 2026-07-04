@@ -1,11 +1,11 @@
 #define LENGTH_LUT 100
 
-extern int vetorCorrenteX[];
-extern int vetorCorrenteY[];
-extern int vetorCorrenteZ[];
-extern int vetorVelAngX[];
-extern int vetorVelAngY[];
-extern int vetorVelAngZ[];
-extern int vetorPosicaoX[];
-extern int vetorPosicaoY[];
-extern int vetorPosicaoZ[];
+extern int currentVectorX[];
+extern int currentVectorY[];
+extern int currentVectorZ[];
+extern int angularVelVectorX[];
+extern int angularVelVectorY[];
+extern int angularVelVectorZ[];
+extern int positionVectorX[];
+extern int positionVectorY[];
+extern int positionVectorZ[];

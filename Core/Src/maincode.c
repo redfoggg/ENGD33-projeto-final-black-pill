@@ -27,6 +27,7 @@ SemaphoreHandle_t xMutexCurrentPosition = NULL;
 /* =====================INICIALIZAÇÃO DO RTOS===================== */
 
 void userRTOS(void) {
+    xMutexCurrentCurrent = xSemaphoreCreateMutex();
     xMutexCurrentLinearVel = xSemaphoreCreateMutex();
     xMutexCurrentAngularVel = xSemaphoreCreateMutex();
     xMutexCurrentPosition = xSemaphoreCreateMutex();
@@ -42,21 +43,31 @@ void userRTOS(void) {
     xTaskCreate(vTaskQueueCurrentReader, "queueCorrenteReader", 256, (void*) 0, 2, NULL);
     xTaskCreate(vTaskQueueAngularVelReader, "queueVelAngularReader", 256, (void*) 0, 2, NULL);
     xTaskCreate(vTaskQueuePositionReader, "queuePosicaoReader", 256, (void*) 0, 2, NULL);
+}
 
-    vTaskStartScheduler();
+/* =====================CALLBACKS DE INTERRUPÇÃO===================== */
 
-    while(1);
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+	static TickType_t xLastPress = 0;
+	if(GPIO_Pin == BTN_Pin){
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+		TickType_t xNow = xTaskGetTickCountFromISR();
+		if((xNow - xLastPress) >= pdMS_TO_TICKS(200)){
+			xLastPress = xNow;
+			vTaskNotifyGiveFromISR(xHandlerDisplayManager, &xHigherPriorityTaskWoken);
+			portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+		}
+	}
 }
 
 /* =========================TASKS DO RTOS========================= */
 
 // Gerenciamento da tela
 void vDisplayManager(void *p){
-	TickType_t xLastWakeTime;;
-	uint16_t sIndex = 0;
+	baseScreen(sCurrentScreen);
 	while(1){
-		xLastWakeTime = xTaskGetTickCount();
-		if(sIndex >= 9){
+		uint32_t ulNotified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(REFRESH_SCREEN));
+		if(ulNotified > 0){
 			switch(sCurrentScreen) {
     		    case SCREEN1:
     		        sCurrentScreen = SCREEN2;
@@ -71,12 +82,8 @@ void vDisplayManager(void *p){
     		        break;
     		}
 			baseScreen(sCurrentScreen);
-			sIndex = 0;
-		}else{
-			sIndex++;
 		}
 		dataScreen(sCurrentScreen);
-		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(REFRESH_SCREEN));
 	}
 }
 
@@ -162,7 +169,7 @@ void vTaskQueueCurrentReader(void *p) {
 				xSemaphoreGive(xMutexCurrentCurrent);
 			}
 		}
-		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(125));
+		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(25));
 	}
 }
 
@@ -279,8 +286,8 @@ void baseScreen(uint16_t sScreenNum){
 // Exibição de valores da tela 1
 void funcDataScreen1(void){
 	const TickType_t xMaxMutexDelay = pdMS_TO_TICKS(1);
-	dataset linearVel;
-	dataset position;
+	dataset linearVel = {0};
+	dataset position = {0};
 	char textBuffer[20];
 
 	if(xSemaphoreTake(xMutexCurrentLinearVel, xMaxMutexDelay) == pdPASS){
@@ -305,8 +312,8 @@ void funcDataScreen1(void){
 // Exibição dos valores da tela 2
 void funcDataScreen2(void){
 	const TickType_t xMaxMutexDelay = pdMS_TO_TICKS(1);
-	dataset angularVel;
-	dataset linearVel;
+	dataset angularVel = {0};
+	dataset linearVel = {0};
 	char textBuffer[20];
 
 	if(xSemaphoreTake(xMutexCurrentLinearVel, xMaxMutexDelay) == pdPASS){
@@ -331,7 +338,7 @@ void funcDataScreen2(void){
 // Exibição dos valores da tela 3
 void funcDataScreen3(void){
 	const TickType_t xMaxMutexDelay = pdMS_TO_TICKS(1);
-	dataset current;
+	dataset current = {0};
 	char textBuffer[20];
 
 	if(xSemaphoreTake(xMutexCurrentCurrent, xMaxMutexDelay) == pdPASS){

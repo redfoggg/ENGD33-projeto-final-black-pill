@@ -1,0 +1,139 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[brazil]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{psfrag}
+\usepackage{times}
+\usepackage{indentfirst}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{graphicx}
+\usepackage{mathtools}
+\usepackage{url}
+
+\urlstyle{tt}
+\emergencystretch=3em
+
+
+\title{\textbf{Programação em Tempo Real para Sistemas Embarcados} \\ \vspace{1.0cm} \textbf{Relatório Projeto Final - Módulo de Interface via Display} \\  \vspace{1.0cm} \large Professor: Jes de Jesus Fiais Cerqueira \\ \vspace{2.5cm}
+\includegraphics[width=4.5cm]{brasao_ufba.jpg} \vspace{1.0cm} }
+
+\author{David Ferrari, João Cerqueira, Vinícius Jesus, Felipe Cunha \\
+Universidade Federal da Bahia, Campus Salvador}
+\date{Julho, 2026}
+
+\begin{document}
+\maketitle
+
+\clearpage
+
+\renewcommand*\contentsname{Sumário}
+
+\tableofcontents
+
+\clearpage
+
+
+
+\section{Introdução}
+
+Neste documento segue o desenvolvimento de um módulo para sistemas de tempo real, destinado ao controle e monitoramento de bases robóticas móveis, considerando um robô com três rodas. O projeto é parte de um todo composto por outras equipes da disciplina Programação em Tempo Real para Sistemas Embarcados. Cada equipe ficou responsável por um módulo de sua livre escolha, esta equipe, Grupo 5, escolheu o módulo de interface via display, e foi utilizado o microcontrolador STM32F411CEU6 da placa de desenvolvimento Blackpill, conforme orientações do professor, já o módulo de display escolhido foi o OLED SSD1306, monocromático, $128 \times 64$ pixels, com a comunicação I2C como especificado, este display foi escolhido pela necessidade do projeto de utilizar o I2C sendo então um display com suporte ao protocolo de comunicação mencionado.
+
+O FreeRTOS, que é um sistema operacional de tempo real amplamente utilizado em sistemas embarcados, foi utilizado no desenvolvimento do projeto também por, além de ter sido amplamente discutido em sala e orientado o seu uso no projeto, nos dar as condições de desenvolver uma aplicação sem se preocupar com diversos detalhes, como agendamento de tarefas, gerenciamento das pilhas e diversas questões sobre performance que já são resolvidas pelo FreeRTOS.
+
+\section{Objetivo}
+
+Neste projeto, através de uma simulação de dados de entrada simulando sensores de velocidade, corrente e posição, faremos a coleta, transformação e exibição desses dados em um display, considerando um sistema embarcado de um robô que é a proposta do trabalho.
+
+\section{Desenvolvimento}
+
+\subsection{Solução adotada}
+
+Para solucionar o problema, primeiramente definimos como organizaríamos os dados a serem mostrados, afinal em sistemas embarcados os recursos são escassos e uma boa modelagem garante performance, segurança e escalabilidade do projeto, sendo parte fundamental do processo.
+
+Como precisamos mostrar:
+\begin{itemize}
+    \item Posição ($x$, $y$);
+    \item Velocidade angular das rodas (entrada dos sensores);
+    \item Velocidade linear e velocidade angular do robô (grandezas derivadas);
+    \item Corrente em cada motor.
+\end{itemize}
+
+Escolhemos propositalmente construir uma struct de três dimensões, $x$, $y$ e $z$, e um campo \texttt{TickType\_t timestamp} como segue:
+
+\begin{verbatim}
+    typedef struct {
+        float x;
+        float y;
+        float z;
+        TickType_t timestamp;
+    } dataset;
+\end{verbatim}
+
+Dessa forma temos de ganho:
+\begin{itemize}
+    \item Uma só definição de fila, todas as filas usam \texttt{sizeof(dataset)} como tamanho de elemento, e as tarefas leitoras/produtoras compartilham a mesma lógica;
+    \item Menos código duplicado, as funções de tela, os mutexes e o padrão produtor/consumidor funcionam igual para qualquer grandeza;
+    \item Timestamp comum, toda amostra carrega o tick de geração, útil para rastrear latência/ordem.
+\end{itemize}
+
+Como o robô tem 3 rodas, temos 3 valores de corrente e 3 valores de velocidade angular, que ocupam integralmente os campos $x$, $y$ e $z$. Já a posição usa apenas $x$ e $y$, ficando o campo $z$ sem uso nesse caso. O reaproveitamento acontece no dataset de velocidade linear, grandeza derivada da transformação: os campos $x$ e $y$ guardam $V_x$ e $V_y$, e o campo $z$ guarda a velocidade angular do corpo do robô ($\omega$), calculada na mesma etapa. Dessa forma nada é perdido e conseguimos representar todo o estado do robô para então ser enviado ao display.
+
+Definida a modelagem dos dados, a arquitetura do sistema segue o padrão produtor/consumidor sobre as filas do FreeRTOS. Para cada grandeza existe uma tarefa produtora, que gera as amostras na taxa do respectivo sensor e as deposita em uma fila dedicada, e uma tarefa consumidora, que drena essa fila, aplica as transformações necessárias e publica o valor mais recente em uma variável global protegida por mutex, de onde a tarefa de display faz a leitura. Esse desacoplamento permite que cada lado opere em seu próprio ritmo, os produtores rodam com prioridades altas e períodos curtos, enquanto os consumidores e a interface rodam mais lentamente, sem que um bloqueie o outro. As filas absorvem rajadas de produção e, por serem estruturas thread-safe do próprio RTOS, dispensam sincronização manual no hand-off entre tarefas, a exclusão mútua explícita fica restrita ao ponto em que consumidores e display compartilham o estado final do robô.
+
+\subsection{Geração dos dados}
+
+Como o projeto não dispõe dos sensores físicos, os dados de entrada são simulados por meio de tabelas de consulta (lookup tables). Um script em Python (\texttt{generate-lookup-table.py}) gera, em tempo de compilação, nove vetores de 100 posições com valores aleatórios dentro de faixas realistas para cada grandeza: corrente de 0 a 4 A, velocidade angular de 0 a $10\pi$ rad/s e posição de 0 a 1000 cm. O resultado é escrito diretamente no arquivo \texttt{lookuptable.c}, que é compilado junto ao firmware, evitando qualquer custo de geração em tempo de execução.
+
+Dentro do sistema embarcado, três tarefas produtoras percorrem esses vetores de forma circular, simulando um fluxo contínuo de amostras. Cada tarefa monta um \texttt{dataset} com os três valores da sua grandeza e o tick atual do RTOS como timestamp, e o envia para a fila correspondente com \texttt{xQueueSendToBack} sem bloqueio. Os períodos foram definidos para refletir a dinâmica de cada sensor: corrente a cada 1 ms (fila de 50 elementos), velocidade angular a cada 10 ms (fila de 30) e posição a cada 100 ms (fila de 5). A periodicidade é garantida por \texttt{vTaskDelayUntil}, que mantém o período fixo sem acúmulo de atraso. Caso alguma fila encha, o dado é descartado e o LED da placa sinaliza a condição de overflow.
+
+\subsection{Transformação dos dados}
+
+A transformação principal ocorre na tarefa leitora de velocidade angular. As lookup tables fornecem as velocidades angulares das três rodas ($M_1$, $M_2$, $M_3$), mas a interface deve exibir a velocidade do robô como corpo. Para isso aplica-se a cinemática direta de uma base omnidirecional de três rodas dispostas a $120^{\circ}$ (ângulos $\alpha$ de $0^{\circ}$, $120^{\circ}$ e $240^{\circ}$), com raio de roda $r = 15$ cm e distância do centro à roda $L = 20$ cm:
+
+\begin{align*}
+V_x &= r \cdot \frac{2}{3} \cdot \left[ -\operatorname{sen}(\alpha_1) M_1 - \operatorname{sen}(\alpha_2) M_2 - \operatorname{sen}(\alpha_3) M_3 \right] \\
+V_y &= r \cdot \frac{2}{3} \cdot \left[ \cos(\alpha_1) M_1 + \cos(\alpha_2) M_2 + \cos(\alpha_3) M_3 \right] \\
+\omega &= \frac{r \left( M_1 + M_2 + M_3 \right)}{3L}
+\end{align*}
+
+Os senos e os cossenos são pré-calculados como constantes na inicialização da tarefa, evitando chamadas trigonométricas repetidas a cada amostra. O resultado é armazenado em um \texttt{dataset} de velocidade linear, com $V_x$ e $V_y$ nos campos $x$ e $y$, e a velocidade angular do corpo $\omega$ reaproveitando o campo $z$. Cada tarefa leitora esvazia sua fila em laço e grava o valor mais recente na variável global de snapshot correspondente, sempre protegida por mutex (padrão take, escreve, give, com timeout de 1 ms), garantindo exclusão mútua com a tarefa de exibição.
+
+\subsection{Envio ao display}
+
+A comunicação com o display OLED SSD1306 é feita pelo barramento I2C1 a 400 kHz (pinos PB6/SCL e PB7/SDA), com o display no endereço \texttt{0x3C}. O driver mantém um framebuffer de 1 KB em RAM ($128 \times 64$ pixels, 1 bit por pixel); as funções de desenho de texto e primitivas escrevem apenas nesse buffer, e a função \texttt{SSD1306\_UpdateScreen} transfere o buffer completo ao display via HAL. Isso reduz o número de transações I2C e evita cintilação.
+
+A tarefa \texttt{vDisplayManager}, de menor prioridade do sistema, gerencia três telas: velocidade linear e posição, velocidade angular, e correntes dos motores. Ela bloqueia em \texttt{ulTaskNotifyTake} com timeout de 699 ms. Se o timeout expira, apenas os valores da tela atual são atualizados, lendo as variáveis globais sob mutex. Se uma notificação chega, a tela avança ciclicamente e é redesenhada por completo.
+
+A notificação vem do botão KEY (PA0), tratado por interrupção externa. O pressionamento gera uma borda de descida que dispara a EXTI0; o handler \texttt{EXTI0\_IRQHandler} delega ao HAL, que invoca o callback \texttt{HAL\_GPIO\_EXTI\_Callback} reimplementado na aplicação. Nele aplica-se um debounce por software de 200 ms, necessário porque o botão da placa não possui filtro de hardware, e em seguida a tarefa de display é acordada com \texttt{vTaskNotifyGiveFromISR}, seguida de \texttt{portYIELD\_FROM\_ISR} para troca de contexto imediata. Esse é o padrão de interrupção diferida: a ISR faz o mínimo e o trabalho pesado fica em contexto de tarefa. A EXTI0 foi configurada com prioridade 5, o valor mais urgente permitido pelo \texttt{configMAX\_SYSCALL\_INTERRUPT\_PRIORITY} do FreeRTOS para ISRs que chamam APIs \texttt{FromISR}.
+
+Além da EXTI0, o sistema usa as interrupções de infraestrutura do RTOS: o SysTick gera o tick do escalonador, o par PendSV/SVC realiza as trocas de contexto e o TIM1 serve como base de tempo do HAL, já que o SysTick fica dedicado ao FreeRTOS. Quanto aos handlers de objetos do RTOS, o sistema mantém três \texttt{QueueHandle\_t} (uma fila por grandeza), quatro \texttt{SemaphoreHandle\_t} (um mutex por variável global compartilhada) e um \texttt{TaskHandle\_t} da tarefa de display, usado como alvo da notificação enviada pela interrupção do botão.
+
+\subsection{Pinagem}
+
+Utilizando os equipamentos citados anteriormente, a pinagem do projeto ficou como segue na imagem.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\linewidth]{pinagem.png}
+    \caption{Planejamento dos pinos para o STM32F411CEUx}
+    \label{fig:pinagem}
+\end{figure}
+
+\begin{itemize}
+    \item \textbf{LED (PC13):} Alimenta o LED indicador da placa. No firmware, é apagado quando ocorre overflow em alguma das filas FreeRTOS.
+    \item \textbf{BTN (PA0):} Botão KEY da Black Pill. Dispara a interrupção EXTI0 (borda de descida, pull-up interno) para trocar a tela exibida no OLED.
+    \item \textbf{I2C1\_SCL (PB6):} Pino de clock da interface I2C1, essencial para a comunicação com o display OLED SSD1306.
+    \item \textbf{I2C1\_SDA (PB7):} Pino de dados da interface I2C1, essencial para a comunicação com o display OLED SSD1306.
+    \item \textbf{RCC\_OSC\_IN / RCC\_OSC\_OUT (PH0 / PH1):} Pinos do oscilador externo (cristal).
+\end{itemize}
+
+\section{Conclusão}
+
+O projeto atingiu o objetivo de coletar, transformar e exibir dados de telemetria de uma base robótica omnidirecional em um sistema de tempo real. A arquitetura produtor/consumidor com filas do FreeRTOS mostrou-se adequada para desacoplar taxas de amostragem distintas (de 1 ms a 100 ms) do ritmo lento da interface, enquanto os mutexes garantiram acesso consistente ao estado compartilhado sem condições de corrida.
+
+Entre os principais aprendizados destacam-se o dimensionamento conjunto de filas e períodos de tarefas, cuja inconsistência inicial causava perda de dados por overflow; a importância de inicializar corretamente todos os objetos de sincronização, já que um mutex não criado leva a comportamento indefinido; e o tratamento correto de interrupções em conjunto com o RTOS, respeitando os limites de prioridade para uso das APIs \texttt{FromISR} e aplicando debounce por software. A substituição da troca de telas por tempo pela troca por botão via interrupção externa também evidenciou o padrão de interrupção diferida, que mantém as ISRs curtas e previsíveis, característica essencial em sistemas de tempo real.
+
+Como trabalhos futuros, o módulo pode ser integrado aos módulos das demais equipes, substituindo as lookup tables por dados reais de sensores, e a interface pode evoluir para exibir alertas e históricos das grandezas monitoradas.
+
+\clearpage
+\end{document}

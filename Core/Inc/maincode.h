@@ -64,4 +64,8 @@ void funcDataScreen2(void);
 void funcDataScreen3(void);
 void dataScreen(uint16_t);
 
+void vTaskSimCommandReader(void *p);
+
+void vTaskTimingMonitor(void *p);
+
 #endif /* MAINCODE_H */

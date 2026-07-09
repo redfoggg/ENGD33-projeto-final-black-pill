@@ -1,0 +1,51 @@
+TESTE AUTOMATICO RENODE + STM32 + FREERTOS
+Data/hora: 2026-07-09 02:45:20.511357
+Objetivo: validar troca de telas via UART de simulacao
+Sequencia esperada: SCREEN1 -> SCREEN2 -> SCREEN3 -> SCREEN1
+
+Foi implementado um teste automatizado em Python conectado à UART2 simulada no Renode. O teste envia comandos de troca de tela ao firmware e registra a saída serial produzida pela aplicação. A execução confirma que o firmware é carregado corretamente no ambiente simulado, que o FreeRTOS inicia suas tasks, que a comunicação UART está operacional e que o gerenciador de display responde às notificações, alternando entre as telas de posição/velocidade, velocidades angulares e correntes.
+
+Esse teste não substitui a validação física do barramento I2C/OLED, mas serve como evidência de funcionamento lógico da aplicação embarcada em ambiente simulado.
+
+Conectado na UART2 simulada.
+
+INIT RTOS | heap before tasks=30784
+BUTTON DEBUG | cb=0 | notify=0 | last=0
+CREATE displayManager=1 | heap=22408
+CREATE gerarQueueCorrente=1 | heap=21712
+CREATE gerarQueueVelAngular=1 | heap=21016
+CREATE gerarQueuePosicao=1 | heap=20320
+CREATE queueCorrenteReader=1 | heap=19112
+CREATE queueVelAngularReader=1 | heap=17904
+CREATE queuePosicaoReader=1 | heap=16696
+CREATE simCommandReader=1 | heap=15488
+SCREEN1 | Vx=-206.7 | Vy=25.2 | Px=655.02 | Py=632.26
+SCREEN1 | Vx=-180.3 | Vy=125.0 | Px=436.44 | Py=953.40
+SCREEN1 | Vx=-52.9 | Vy=68.6 | Px=421.41 | Py=253.78
+SCREEN1 | Vx=-239.4 | Vy=38.0 | Px=108.83 | Py=174.54
+SCREEN1 | Vx=2.0 | Vy=2.1 | Px=573.46 | Py=800.80
+
+>>> Enviando comando: 'n\n'
+SIM CMD | next screen
+SCREEN2 | M1=13.5 | M2=19.0 | M3=24.3 | W=14.19
+SCREEN2 | M1=26.8 | M2=18.5 | M3=27.8 | W=18.27
+
+>>> Enviando comando: 'n\n'
+SIM CMD | next screen
+SCREEN3 | Ix=1.4 | Iy=1.9 | Iz=3.3
+SCREEN3 | Ix=3.1 | Iy=0.3 | Iz=4.0
+SCREEN3 | Ix=2.3 | Iy=0.6 | Iz=3.5
+
+>>> Enviando comando: 'n\n'
+SIM CMD | next screen
+SCREEN1 | Vx=-66.4 | Vy=-149.2 | Px=688.02 | Py=207.21
+SCREEN1 | Vx=265.5 | Vy=58.2 | Px=460.48 | Py=107.89
+
+
+===== RESUMO DO TESTE =====
+SCREEN1: OK
+SCREEN2: OK
+SCREEN3: OK
+SIM CMD: OK
+
+RESULTADO FINAL: TESTE APROVADO

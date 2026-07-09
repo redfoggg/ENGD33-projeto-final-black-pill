@@ -1,0 +1,5 @@
+mach create "blackpill_f411_test"
+
+machine LoadPlatformDescription @platforms/boards/stm32f4_discovery.repl
+
+sysbus LoadELF @Debug/projeto_final_engd33.elf

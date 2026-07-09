@@ -4,19 +4,58 @@
 /* Framebuffer em RAM: 1 byte = 8 pixels verticais (page addressing). */
 static uint8_t ssd1306_buffer[SSD1306_BUFFER_SIZE];
 
+
+
 /* ============================ TRANSPORTE I2C ============================ */
+#define SSD1306_I2C_TIMEOUT_MS 20
+
+__attribute__((used)) volatile uint32_t ssd1306_i2c_ok_count = 0;
+__attribute__((used)) volatile uint32_t ssd1306_i2c_err_count = 0;
+__attribute__((used)) volatile HAL_StatusTypeDef ssd1306_last_status = HAL_OK;
 
 static void SSD1306_WriteCommand(uint8_t cmd)
 {
-	uint8_t payload[2] = {0x00, cmd};	/* control byte 0x00 = comando */
-	HAL_I2C_Master_Transmit(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, payload, 2, HAL_MAX_DELAY);
+	uint8_t payload[2] = {0x00, cmd};
+
+	HAL_StatusTypeDef status = HAL_I2C_Master_Transmit(
+		&SSD1306_I2C_PORT,
+		SSD1306_I2C_ADDR,
+		payload,
+		2,
+		SSD1306_I2C_TIMEOUT_MS
+	);
+
+	ssd1306_last_status = status;
+
+	if (status == HAL_OK) {
+		ssd1306_i2c_ok_count++;
+	} else {
+		ssd1306_i2c_err_count++;
+	}
 }
 
 static void SSD1306_WriteData(uint8_t *data, uint16_t len)
 {
-	/* control byte 0x40 = dados; usa Mem_Write para prefixar sem copiar o buffer */
-	HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, I2C_MEMADD_SIZE_8BIT, data, len, HAL_MAX_DELAY);
+	HAL_StatusTypeDef status = HAL_I2C_Mem_Write(
+		&SSD1306_I2C_PORT,
+		SSD1306_I2C_ADDR,
+		0x40,
+		I2C_MEMADD_SIZE_8BIT,
+		data,
+		len,
+		SSD1306_I2C_TIMEOUT_MS
+	);
+
+	ssd1306_last_status = status;
+
+	if (status == HAL_OK) {
+		ssd1306_i2c_ok_count++;
+	} else {
+		ssd1306_i2c_err_count++;
+	}
 }
+
+
 
 /* ============================ INICIALIZACAO ============================ */
 

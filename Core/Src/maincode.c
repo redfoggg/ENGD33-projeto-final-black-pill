@@ -176,7 +176,7 @@ void vTaskQueueCurrentReader(void *p) {
 // Leitura de dados de velocidade angular da queue
 void vTaskQueueAngularVelReader(void *p) {
 	const TickType_t xMaxMutexDelay = pdMS_TO_TICKS(1);
-	const uint16_t L_cm = 20;
+	const uint16_t L_cm = 10;
 	const uint16_t r_cm = 5;
 	const float alpha1 = 0;
 	const float alpha2 = 2*M_PI/3;

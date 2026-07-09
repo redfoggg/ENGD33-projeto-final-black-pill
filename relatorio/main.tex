@@ -40,6 +40,13 @@ Neste documento segue o desenvolvimento de um módulo para sistemas de tempo rea
 
 O FreeRTOS, que é um sistema operacional de tempo real amplamente utilizado em sistemas embarcados, foi utilizado no desenvolvimento do projeto também por, além de ter sido amplamente discutido em sala e orientado o seu uso no projeto, nos dar as condições de desenvolver uma aplicação sem se preocupar com diversos detalhes, como agendamento de tarefas, gerenciamento das pilhas e diversas questões sobre performance que já são resolvidas pelo FreeRTOS.
 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\linewidth]{modulo.png}
+    \caption{Módulo a ser implementado}
+    \label{fig:modulo}
+\end{figure}
+
 \section{Objetivo}
 
 Neste projeto, através de uma simulação de dados de entrada simulando sensores de velocidade, corrente e posição, faremos a coleta, transformação e exibição desses dados em um display, considerando um sistema embarcado de um robô que é a proposta do trabalho.
@@ -114,7 +121,7 @@ Utilizando os equipamentos citados anteriormente, a pinagem do projeto ficou com
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.7\linewidth]{pinagem.png}
+    \includegraphics[width=0.7\linewidth]{pinagem.jpeg}
     \caption{Planejamento dos pinos para o STM32F411CEUx}
     \label{fig:pinagem}
 \end{figure}

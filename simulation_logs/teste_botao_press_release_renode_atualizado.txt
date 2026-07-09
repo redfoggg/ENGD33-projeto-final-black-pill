@@ -1,0 +1,189 @@
+TESTE DE SIMULAÇÃO RENODE — BOTÃO VIRTUAL PA0 / EXTI0 COM PRESS E RELEASE
+
+Projeto:
+ENGD33 — Programação em Tempo Real para Sistemas Embarcados
+Placa-alvo: Black Pill STM32F411CEU6
+Ambiente de simulação: Renode
+Periféricos envolvidos: botão em PA0, interrupção externa EXTI0, FreeRTOS, driver SSD1306/I2C e gerenciador de display
+
+1. Objetivo do teste
+
+Este teste teve como objetivo validar, no Renode, se o botão virtual da plataforma simulada seria capaz de acionar o mesmo fluxo previsto para o botão físico do projeto.
+
+O fluxo esperado era:
+
+    sysbus.gpioPortA.UserButton Press
+    sysbus.gpioPortA.UserButton Release
+    -> GPIOA pino 0
+    -> EXTI0
+    -> EXTI0_IRQHandler()
+    -> HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0)
+    -> HAL_GPIO_EXTI_Callback(GPIO_PIN_0)
+    -> vTaskNotifyGiveFromISR(xHandlerDisplayManager)
+    -> vDisplayManager
+    -> troca de tela
+
+A finalidade era comprovar que a troca de telas não dependia apenas de comandos pela UART, mas também poderia ser acionada pelo mecanismo assíncrono de botão/interrupção, como previsto no projeto.
+
+2. Configuração do botão no firmware
+
+O botão foi configurado no pino PA0 como entrada com interrupção externa.
+
+A configuração final utilizada foi:
+
+    GPIO_InitStruct.Pin = BTN_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(BTN_GPIO_Port, &GPIO_InitStruct);
+
+    HAL_NVIC_SetPriority(EXTI0_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
+Essa configuração é coerente com botão usando pull-up interno. Nesse arranjo, o pino permanece em nível alto quando solto e vai para nível baixo quando pressionado. Portanto, o evento de pressionamento ocorre na borda de descida.
+
+3. Handler de interrupção
+
+Foi necessário garantir que o handler da EXTI0 estivesse implementado no arquivo stm32f4xx_it.c:
+
+    void EXTI0_IRQHandler(void)
+    {
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
+    }
+
+Esse handler encaminha a interrupção da linha EXTI0 para a camada HAL, que por sua vez chama o callback HAL_GPIO_EXTI_Callback().
+
+4. Callback utilizado
+
+O callback do botão foi implementado com contadores de debug e debounce por software:
+
+    volatile uint32_t lastButtonPressTick = 0;
+    volatile uint32_t button_callback_count = 0;
+    volatile uint32_t button_notify_count = 0;
+
+    void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+    {
+        if (GPIO_Pin == GPIO_PIN_0)
+        {
+            button_callback_count++;
+
+            uint32_t now = HAL_GetTick();
+
+            if ((now - lastButtonPressTick) > 200)
+            {
+                lastButtonPressTick = now;
+                button_notify_count++;
+
+                BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+                vTaskNotifyGiveFromISR(xHandlerDisplayManager, &xHigherPriorityTaskWoken);
+                portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+            }
+        }
+    }
+
+O debounce evita que um único acionamento físico gere múltiplas trocas de tela por ruído ou bouncing.
+
+5. Comandos executados no Renode
+
+O firmware foi carregado normalmente no Renode:
+
+    renode --console -e "i @renode/parte3_i2c_oled.resc"
+
+No monitor do Renode:
+
+    start
+
+A UART2 foi aberta em outro terminal apenas para observar os prints de debug e a tela atual:
+
+    nc localhost 12345
+
+Com a aplicação em execução, o botão virtual foi acionado no monitor do Renode:
+
+    sysbus.gpioPortA.UserButton Press
+    sysbus.gpioPortA.UserButton Release
+
+6. Resultado observado
+
+Antes do acionamento do botão virtual, a UART2 mostrava a SCREEN1 sendo atualizada com valores vindos da lookuptable:
+
+    SCREEN1 | Vx=-66.4 | Vy=-149.2 | Px=451.71 | Py=900.58
+    SCREEN1 | Vx=-239.4 | Vy=38.0 | Px=689.72 | Py=237.01
+
+Após executar no Renode:
+
+    sysbus.gpioPortA.UserButton Press
+    sysbus.gpioPortA.UserButton Release
+
+a tela mudou para SCREEN2:
+
+    SCREEN2 | M1=17.2 | M2=26.6 | M3=2.7 | W=11.63
+
+7. Interpretação técnica
+
+O resultado confirma que o botão virtual do Renode acionou corretamente o fluxo de interrupção do firmware.
+
+A sequência validada foi:
+
+    botão virtual do Renode
+    -> GPIOA/PA0
+    -> EXTI0
+    -> EXTI0_IRQHandler()
+    -> HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0)
+    -> HAL_GPIO_EXTI_Callback(GPIO_PIN_0)
+    -> vTaskNotifyGiveFromISR()
+    -> vDisplayManager
+    -> mudança da tela exibida
+
+A passagem de SCREEN1 para SCREEN2 demonstra que a notificação enviada a partir da interrupção foi recebida pela task gerenciadora do display.
+
+8. Relação com o FreeRTOS
+
+A troca de tela foi feita por notificação de task do FreeRTOS:
+
+    vTaskNotifyGiveFromISR(xHandlerDisplayManager, &xHigherPriorityTaskWoken);
+
+Esse mecanismo é adequado para comunicação entre uma interrupção e uma task, pois evita que a rotina de interrupção execute processamento pesado. A ISR apenas sinaliza o evento, e a task vDisplayManager executa a alteração da interface.
+
+9. Relação com o OLED/I2C
+
+Embora a observação da troca de tela tenha sido feita pela UART2 de debug, a aplicação manteve o caminho real de atualização do display:
+
+    vDisplayManager
+    -> funções de escrita no SSD1306
+    -> HAL_I2C
+    -> I2C1
+    -> periférico OLED simulado no endereço 0x3C
+
+Portanto, a UART2 não substituiu o display. Ela apenas permitiu visualizar no terminal qual tela estava ativa durante a simulação.
+
+10. Resultado final
+
+O teste foi considerado bem-sucedido.
+
+Evidência principal:
+
+    Antes do botão:
+        SCREEN1 | Vx=-66.4 | Vy=-149.2 | Px=451.71 | Py=900.58
+        SCREEN1 | Vx=-239.4 | Vy=38.0 | Px=689.72 | Py=237.01
+
+    Comando no Renode:
+        sysbus.gpioPortA.UserButton Press
+        sysbus.gpioPortA.UserButton Release
+
+    Após o botão:
+        SCREEN2 | M1=17.2 | M2=26.6 | M3=2.7 | W=11.63
+
+Conclusão:
+
+    O botão virtual PA0 no Renode acionou a EXTI0.
+    O callback HAL_GPIO_EXTI_Callback() notificou a task do display.
+    A task vDisplayManager recebeu o evento.
+    A tela mudou corretamente de SCREEN1 para SCREEN2.
+    O fluxo de botão/interrupção/FreeRTOS foi validado.
+
+Resultado final:
+
+    TESTE APROVADO
+    Botão virtual Press/Release funcionando
+    EXTI0 funcionando
+    Notificação FreeRTOS funcionando
+    Troca de tela validada

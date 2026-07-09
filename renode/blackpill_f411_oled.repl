@@ -1,0 +1,6 @@
+using "platforms/boards/stm32f4_discovery.repl"
+
+oled: Mocks.DummyI2CSlave @ i2c1 0x3C
+
+gpioPortA:
+    0 -> exti@0

@@ -64,8 +64,8 @@ all: main-build
 main-build: projeto_final_engd33.elf secondary-outputs
 
 # Tool invocations
-projeto_final_engd33.elf projeto_final_engd33.map: $(OBJS) $(USER_OBJS) /home/david/Documents/ufba/programacao-tempo-real-sistemas-embarcados/ENGD33-projeto-final-black-pill/STM32F411CEUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "projeto_final_engd33.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/david/Documents/ufba/programacao-tempo-real-sistemas-embarcados/ENGD33-projeto-final-black-pill/STM32F411CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="projeto_final_engd33.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+projeto_final_engd33.elf projeto_final_engd33.map: $(OBJS) $(USER_OBJS) /home/joao-cerqueira/Documents/estudos/aaSemestres/9\ sem/Tempo\ real\ -\ embarcados/Trabalho/ENGD33-projeto-final-black-pill/STM32F411CEUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "projeto_final_engd33.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/joao-cerqueira/Documents/estudos/aaSemestres/9 sem/Tempo real - embarcados/Trabalho/ENGD33-projeto-final-black-pill/STM32F411CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="projeto_final_engd33.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

@@ -1,0 +1,151 @@
+TESTE DE SIMULAÇÃO RENODE — STM32F411 + FREERTOS + I2C/OLED SSD1306
+
+Projeto:
+ENGD33 — Programação em Tempo Real para Sistemas Embarcados
+Placa-alvo: Black Pill STM32F411CEU6
+Periféricos principais: OLED SSD1306 via I2C1, botão PA0/EXTI0 e FreeRTOS
+
+1. Objetivo do teste
+
+Este teste teve como objetivo validar, no ambiente Renode, o fluxo principal do projeto no modo mais próximo da implementação original:
+
+    lookuptable.c
+    -> tasks geradoras FreeRTOS
+    -> queues
+    -> tasks leitoras
+    -> mutexes
+    -> variáveis globais
+    -> gerenciador de display
+    -> driver SSD1306
+    -> HAL_I2C
+    -> I2C1 simulado
+    -> OLED no endereço 0x3C
+
+A UART2 foi utilizada apenas como recurso auxiliar de debug, para observar no terminal os dados que estão sendo enviados para as telas. Neste teste, a UART2 não foi usada como fonte dos dados do sistema.
+
+2. Configuração utilizada
+
+O firmware foi configurado para usar novamente os dados internos da lookuptable:
+
+    #define USE_UART_SIM_DATA 0
+
+Com essa configuração, as tasks geradoras voltam a ser criadas:
+
+    vTaskGenerateCurrentQueue
+    vTaskGenerateAngularVelQueue
+    vTaskGeneratePositionQueue
+
+O display permanece sendo atualizado pelo driver SSD1306, usando I2C1. No Renode, o OLED foi representado por um periférico I2C simulado no endereço 0x3C.
+
+3. Comandos executados
+
+3.1. Execução do Renode
+
+    renode --console -e "i @renode/parte3_i2c_oled.resc"
+
+No monitor do Renode:
+
+    start
+
+3.2. Abertura da UART2 para debug
+
+Em outro terminal:
+
+    nc localhost 12345
+
+3.3. Leitura dos contadores I2C
+
+Com a máquina pausada no Renode:
+
+    sysbus ReadDoubleWord 0x200014c4
+    sysbus ReadDoubleWord 0x200014c8
+
+Os endereços correspondem aos contadores adicionados no driver SSD1306:
+
+    0x200014c4 -> ssd1306_i2c_ok_count
+    0x200014c8 -> ssd1306_i2c_err_count
+
+4. Saída observada pela UART2
+
+A saída inicial confirmou que o sistema está utilizandoa lookuptable:
+
+    INIT RTOS | heap before tasks=30784
+    BUTTON DEBUG | cb=0 | notify=0 | last=0
+    CREATE displayManager=1 | heap=22408
+    CREATE gerarQueueCorrente=1 | heap=21712
+    CREATE gerarQueueVelAngular=1 | heap=21016
+    CREATE gerarQueuePosicao=1 | heap=20320
+    CREATE queueCorrenteReader=1 | heap=19112
+    CREATE queueVelAngularReader=1 | heap=17904
+    CREATE queuePosicaoReader=1 | heap=16696
+    CREATE simCommandReader=1 | heap=15488
+
+Em seguida, a SCREEN1 passou a ser atualizada com valores vindos da lookuptable:
+
+    SCREEN1 | Vx=80.4 | Vy=37.0 | Px=678.25 | Py=804.18
+    SCREEN1 | Vx=22.6 | Vy=-90.6 | Px=503.47 | Py=586.54
+    SCREEN1 | Vx=-52.9 | Vy=68.6 | Px=886.28 | Py=536.14
+    SCREEN1 | Vx=-206.7 | Vy=25.2 | Px=380.17 | Py=303.51
+    SCREEN1 | Vx=46.1 | Vy=-81.7 | Px=700.55 | Py=397.73
+
+5. Resultado dos contadores I2C
+
+Foram lidos os seguintes valores no Renode:
+
+    ssd1306_i2c_ok_count  = 0x00010701
+    ssd1306_i2c_err_count = 0x00000000
+
+Convertendo o primeiro valor:
+
+    0x00010701 = 67329
+
+Portanto, durante a simulação, foram registradas:
+
+    67329 escritas I2C bem-sucedidas
+    0 erros de escrita I2C
+
+6. Interpretação técnica
+
+O resultado indica que o firmware executou corretamente as chamadas de atualização do display SSD1306 via I2C.
+
+A criação das tasks geradoras confirma que os dados utilizados no teste vieram novamente da lookuptable, preservando a lógica original do projeto.
+
+A sequência validada foi:
+
+    lookuptable.c
+    -> tasks geradoras
+    -> filas FreeRTOS
+    -> tasks leitoras
+    -> variáveis protegidas por mutex
+    -> vDisplayManager
+    -> funções do driver SSD1306
+    -> HAL_I2C
+    -> I2C1 no Renode
+    -> periférico OLED simulado no endereço 0x3C
+
+A UART2 serviu apenas para espelhar as informações das telas no terminal, permitindo observar o comportamento do firmware durante a simulação.
+
+7. Limitação do teste
+
+O Renode, nesta configuração, não renderiza graficamente o OLED SSD1306 como uma tela 128x64 real. O periférico utilizado representa o dispositivo no barramento I2C, permitindo validar as transações I2C do firmware, mas não exibe os pixels do display.
+
+Assim, este teste comprova o funcionamento lógico e a comunicação I2C no ambiente simulado, mas a validação visual completa da tela deve ser feita em hardware físico com o OLED SSD1306 conectado à Black Pill.
+
+8. Conclusão
+
+O teste foi considerado bem-sucedido.
+
+A aplicação embarcada executou no Renode com FreeRTOS, criou corretamente as tasks principais, voltou a utilizar a lookuptable como fonte de dados e atualizou a interface de display através do driver SSD1306.
+
+Os contadores I2C indicaram 67329 transmissões bem-sucedidas e nenhum erro, demonstrando que o firmware manteve o caminho real de comunicação com o OLED via I2C1 no ambiente simulado.
+
+Resultado final:
+
+    TESTE APROVADO
+    FreeRTOS ativo
+    Tasks geradoras ativas
+    Queues e readers funcionando
+    Display manager ativo
+    Driver SSD1306 chamado
+    Escritas I2C realizadas com sucesso
+    Erros I2C: 0

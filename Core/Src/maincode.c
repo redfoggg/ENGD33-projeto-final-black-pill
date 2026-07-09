@@ -15,6 +15,18 @@ __attribute__((used)) volatile uint32_t lastButtonPressTick = 0;
 __attribute__((used)) volatile uint32_t button_callback_count = 0;
 __attribute__((used)) volatile uint32_t button_notify_count = 0;
 
+#define TIMING_MONITOR_WINDOW_MS 10000
+
+__attribute__((used)) volatile uint32_t timing_gen_current_count = 0;
+__attribute__((used)) volatile uint32_t timing_gen_angular_count = 0;
+__attribute__((used)) volatile uint32_t timing_gen_position_count = 0;
+
+__attribute__((used)) volatile uint32_t timing_read_current_count = 0;
+__attribute__((used)) volatile uint32_t timing_read_angular_count = 0;
+__attribute__((used)) volatile uint32_t timing_read_position_count = 0;
+
+__attribute__((used)) volatile uint32_t timing_display_count = 0;
+
 /* =============ESTRUTURAS DE ARMAZENAMENTO DE DADOS============== */
 
 dataset xCurrentLinearVel;
@@ -91,6 +103,9 @@ void userRTOS(void) {
 #if DEBUG_RENODE
     ret = xTaskCreate(vTaskSimCommandReader, "simCommandReader", 256, (void*) 0, 2, NULL);
     sim_printf("CREATE simCommandReader=%ld | heap=%lu\r\n", ret, xPortGetFreeHeapSize());
+
+    ret = xTaskCreate(vTaskTimingMonitor, "timingMonitor", 256, (void*) 0, 1, NULL);
+    sim_printf("CREATE timingMonitor=%ld | heap=%lu\r\n", ret, xPortGetFreeHeapSize());
 #endif
 }
 
@@ -140,7 +155,9 @@ void vDisplayManager(void *p){
     		}
 			baseScreen(sCurrentScreen);
 		}
+		timing_display_count++;
 		dataScreen(sCurrentScreen);
+
 	}
 }
 
@@ -151,9 +168,9 @@ void vTaskGenerateCurrentQueue(void *p) {
 	uint16_t sIndex = 0;
 	while(1) {
 		xLastWakeTime = xTaskGetTickCount();
-		currents.x = vectorX[sIndex];
-		currents.y = vectorY[sIndex];
-		currents.z = vectorZ[sIndex];
+		currents.x = currentVectorX[sIndex];
+		currents.y = currentVectorY[sIndex];
+		currents.z = currentVectorZ[sIndex];
 		currents.timestamp = xLastWakeTime;
 		if(sIndex >= LENGTH_LUT - 1){
 			sIndex = 0;
@@ -164,6 +181,7 @@ void vTaskGenerateCurrentQueue(void *p) {
 			HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
 		}
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1));
+		timing_gen_current_count++;
 	}
 }
 
@@ -174,9 +192,9 @@ void vTaskGenerateAngularVelQueue(void *p) { //geração de dados de velocidade 
 	uint16_t sIndex = 0;
 	while(1) {
 		xLastWakeTime = xTaskGetTickCount();
-		angularVel.x = AngVelocityX[sIndex];
-		angularVel.y = AngVelocityY[sIndex];
-		angularVel.z = AngVelocityZ[sIndex];
+		angularVel.x = angularVelVectorX[sIndex];
+		angularVel.y = angularVelVectorY[sIndex];
+		angularVel.z = angularVelVectorZ[sIndex];
 		angularVel.timestamp = xLastWakeTime;
 		if(sIndex >= LENGTH_LUT - 1){
 			sIndex = 0;
@@ -187,6 +205,7 @@ void vTaskGenerateAngularVelQueue(void *p) { //geração de dados de velocidade 
 			HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
 		}
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
+		timing_gen_angular_count++;
 	}
 }
 
@@ -197,9 +216,9 @@ void vTaskGeneratePositionQueue(void *p) {
 	uint16_t sIndex = 0;
 	while(1) {
 		xLastWakeTime = xTaskGetTickCount();
-		position.x = VecPositionX[sIndex];
-		position.y = VecPositionY[sIndex];
-		position.z = VecPositionZ[sIndex];
+		position.x = positionVectorX[sIndex];
+		position.y = positionVectorY[sIndex];
+		position.z = positionVectorZ[sIndex];
 		position.timestamp = xLastWakeTime;
 		if(sIndex >= LENGTH_LUT - 1){
 			sIndex = 0;
@@ -210,6 +229,7 @@ void vTaskGeneratePositionQueue(void *p) {
 			HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
 		}
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));
+		timing_gen_position_count++;
 	}
 }
 
@@ -227,6 +247,7 @@ void vTaskQueueCurrentReader(void *p) {
 			}
 		}
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(25));
+		timing_read_current_count++;
 	}
 }
 
@@ -270,6 +291,7 @@ void vTaskQueueAngularVelReader(void *p) {
 		}
 
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));
+		timing_read_angular_count++;
 	}
 }
 
@@ -287,6 +309,7 @@ void vTaskQueuePositionReader(void *p) {
 			}
 		}
 		vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(125));
+		timing_read_position_count++;
 	}
 }
 
@@ -627,8 +650,63 @@ void vTaskSimCommandReader(void *p) // debug com UART
 
         vTaskDelay(pdMS_TO_TICKS(20));
     }
+}
 
+void vTaskTimingMonitor(void *p)
+{
+    (void)p;
 
+    TickType_t xLastWakeTime = xTaskGetTickCount();
 
+    uint32_t last_gen_current = 0;
+    uint32_t last_gen_angular = 0;
+    uint32_t last_gen_position = 0;
+
+    uint32_t last_read_current = 0;
+    uint32_t last_read_angular = 0;
+    uint32_t last_read_position = 0;
+
+    uint32_t last_display = 0;
+
+    while (1)
+    {
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(TIMING_MONITOR_WINDOW_MS));
+
+        uint32_t now_gen_current = timing_gen_current_count;
+        uint32_t now_gen_angular = timing_gen_angular_count;
+        uint32_t now_gen_position = timing_gen_position_count;
+
+        uint32_t now_read_current = timing_read_current_count;
+        uint32_t now_read_angular = timing_read_angular_count;
+        uint32_t now_read_position = timing_read_position_count;
+
+        uint32_t now_display = timing_display_count;
+
+        sim_printf("\r\nTASK TIMING | janela=%lu ms\r\n",
+                   (unsigned long)TIMING_MONITOR_WINDOW_MS);
+
+        sim_printf("GEN  | corrente=%lu | velAngular=%lu | posicao=%lu\r\n",
+                   (unsigned long)(now_gen_current - last_gen_current),
+                   (unsigned long)(now_gen_angular - last_gen_angular),
+                   (unsigned long)(now_gen_position - last_gen_position));
+
+        sim_printf("READ | corrente=%lu | velAngular=%lu | posicao=%lu\r\n",
+                   (unsigned long)(now_read_current - last_read_current),
+                   (unsigned long)(now_read_angular - last_read_angular),
+                   (unsigned long)(now_read_position - last_read_position));
+
+        sim_printf("DISP | display=%lu\r\n",
+                   (unsigned long)(now_display - last_display));
+
+        last_gen_current = now_gen_current;
+        last_gen_angular = now_gen_angular;
+        last_gen_position = now_gen_position;
+
+        last_read_current = now_read_current;
+        last_read_angular = now_read_angular;
+        last_read_position = now_read_position;
+
+        last_display = now_display;
+    }
 }
 

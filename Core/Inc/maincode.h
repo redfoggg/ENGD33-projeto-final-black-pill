@@ -66,4 +66,6 @@ void dataScreen(uint16_t);
 
 void vTaskSimCommandReader(void *p);
 
+void vTaskTimingMonitor(void *p);
+
 #endif /* MAINCODE_H */

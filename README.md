@@ -106,7 +106,7 @@ Contém a maior parte da lógica da aplicação:
 Contém definições, protótipos e constantes utilizadas pelo módulo principal, incluindo o tempo nominal de atualização da tela:
 
 ```c
-#define REFRESH_SCREEN 699
+#define REFRESH_SCREEN 700
 ```
 
 ### `Core/Src/lookuptable.c`

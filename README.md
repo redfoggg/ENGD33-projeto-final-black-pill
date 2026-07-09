@@ -83,19 +83,7 @@ O arquivo principal do relatório é:
 ```text
 relatorio/main.tex
 ```
-
-Essa pasta também contém as imagens utilizadas no relatório, como:
-
-```text
-relatorio/brasao_ufba.jpg
-relatorio/modulo.png
-relatorio/pinagem.jpeg
-relatorio/screen1.png
-relatorio/screen2.png
-relatorio/screen3.png
-```
-
-Para compilar o relatório no Overleaf, envie o conteúdo da pasta `relatorio/` para um novo projeto e use `main.tex` como arquivo principal.
+Na mesma pasta está o resultado em pdf da compilação. "Relatorio_TempoReal.pdf"
 
 ## Arquivos principais do firmware
 
